@@ -1,0 +1,1018 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAISA Terminal - Secure Terminal 04-PR</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
+
+        :root {
+            --term-color: #e0e0e0; 
+            --bg-color: #050505;
+            --win-bg: #0d0d0d;
+            --win-border: #333;
+            --accent-red: #8b0000;
+            --accent-green: #2e7d32;
+        }
+
+        body, html {
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            background-color: var(--bg-color); color: var(--term-color);
+            font-family: 'JetBrains Mono', monospace;
+            overflow: hidden; font-size: 14px; line-height: 1.2;
+        }
+
+        .recolor-white { filter: brightness(0) invert(1); }
+        .invert-color { filter: invert(1); }
+
+        .screen { display: none; width: 100%; height: 100%; padding: 0; position: absolute; top: 0; left: 0; }
+        .active { display: flex; }
+
+        #preloader {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--bg-color); display: flex; justify-content: center; align-items: center;
+            z-index: 5000; font-size: 12px; letter-spacing: 4px; font-weight: bold; text-align: center;
+        }
+        .btn-warning {
+            background: #222; border: 1px solid #555; color: var(--term-color);
+            padding: 10px 24px; cursor: pointer; font-size: 0.9rem; font-family: 'JetBrains Mono', monospace; font-weight: bold; margin-top: 25px; transition: all 0.2s;
+        }
+        .btn-warning:hover { background: #333; border-color: #777; color: #fff; }
+
+        #remote-init { flex-direction: column; justify-content: center; align-items: center; text-align: center; font-size: 24px; background: #000; }
+        #remote-init img { width: 180px; margin: 30px 0; opacity: 0; transition: opacity 0.5s ease; }
+        .loading-container { margin-top: 30px; font-size: 1.5rem; }
+
+        #bios-screen { flex-direction: column; align-items: flex-start; text-align: left; padding: 3rem 5rem; background: #000; }
+        .bios-logo { width: 400px; height: 90px; object-fit: fill; margin-bottom: 30px; opacity: 0; }
+        .bios-line { margin: 3px 0; min-height: 1.2em; }
+        .cursor { display: inline-block; width: 10px; height: 1.2em; background-color: var(--term-color); vertical-align: middle; animation: blink 1s step-end infinite; }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
+        #os-loading { justify-content: center; align-items: center; background-color: #000; }
+        .scp-emblem { width: 180px; height: 180px; animation: spin 10s linear infinite; opacity: 1; filter: brightness(0) invert(1); }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+        #login-screen { 
+            justify-content: center; 
+            align-items: center; 
+            opacity: 0; 
+            transition: opacity 1s ease; 
+            background: #000;
+        }
+        #login-screen.active { opacity: 1; }
+        .login-bg-map {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background-image: url('https://github.com/b1386082-blip/SCPRAISAOC_REP/blob/main/Black-And-White-World-Map-Wall-Mural.jpg?raw=true');
+            background-size: cover; background-position: center; 
+            filter: brightness(0.6) contrast(1.1); z-index: 1;
+        }
+        .login-container {
+            position: relative; z-index: 10; width: 460px; background: rgba(10, 10, 10, 0.9);
+            border: 1px solid #333; box-shadow: 0 0 80px rgba(0,0,0,1); display: flex; flex-direction: column;
+            backdrop-filter: blur(10px);
+        }
+        .login-sidebar-accent { position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--accent-red); }
+        .login-header { padding: 40px 40px 10px; text-align: center; }
+        .raisa-logo-small { width: 100px; margin-bottom: 20px; opacity: 0.9; }
+        .login-title { font-size: 1.2rem; font-weight: 700; letter-spacing: 4px; color: #fff; margin: 0; }
+        .login-subtitle { font-size: 0.75rem; color: #666; margin-top: 8px; text-transform: uppercase; letter-spacing: 2px; font-weight: bold; }
+        
+        .login-form-wrapper { padding: 30px 40px 40px; position: relative; min-height: 280px; display: flex; flex-direction: column; }
+        .input-box { margin-bottom: 25px; }
+        .input-box label { display: block; font-size: 0.65rem; color: #555; margin-bottom: 10px; font-weight: bold; letter-spacing: 1px; }
+        .input-box input {
+            width: 100%; padding: 14px; background: rgba(0,0,0,0.5); border: 1px solid #222; color: #fff;
+            font-family: inherit; font-size: 1rem; box-sizing: border-box; transition: all 0.3s;
+        }
+        .input-box input:focus { border-color: #555; background: rgba(20,20,20,0.8); outline: none; }
+        
+        .login-actions { display: flex; flex-direction: column; gap: 12px; margin-top: 5px; }
+        .btn-auth { padding: 16px; background: #fff; color: #000; border: 1px solid #fff; font-weight: bold; cursor: pointer; letter-spacing: 2px; transition: all 0.2s; }
+        .btn-auth:hover { background: #bbb; border-color: #bbb; }
+        .btn-reg { padding: 12px; background: transparent; border: 1px solid #222; color: #444; font-size: 0.7rem; cursor: pointer; letter-spacing: 1px; transition: all 0.2s; }
+        .btn-reg:hover { border-color: #444; color: #888; }
+        
+        #login-loader {
+            display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            flex-direction: column; justify-content: center; align-items: center; background: rgba(10,10,10,0.95);
+            z-index: 20;
+        }
+        #login-loader img {
+            width: 160px; filter: brightness(0) invert(1);
+        }
+        .loader-status { margin-top: 20px; font-size: 0.7rem; color: #666; letter-spacing: 2px; }
+
+        .login-footer { padding: 20px 40px; background: rgba(0,0,0,0.4); border-top: 1px solid #1a1a1a; font-size: 0.65rem; color: #444; line-height: 1.5; text-align: justify; }
+
+        #desktop-screen { display: none; flex-direction: column; z-index: 20; background: #000; }
+        #desktop-screen.active { display: flex; }
+        .desktop-wallpaper {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background-image: url('https://github.com/b1386082-blip/SCPRAISAOC_REP/blob/main/Black-And-White-World-Map-Wall-Mural.jpg?raw=true');
+            background-size: cover; background-position: center; filter: brightness(0.35) grayscale(100%); z-index: 1;
+        }
+        .desktop-icons { position: relative; z-index: 5; padding: 25px; display: flex; flex-direction: column; gap: 20px; align-items: flex-start; flex-grow: 1; }
+        .icon { 
+            width: 90px; padding: 10px; display: flex; flex-direction: column; align-items: center; 
+            text-align: center; cursor: pointer; border: 1px solid transparent; position: relative;
+        }
+        .icon:hover { background: rgba(255, 255, 255, 0.05); border: 1px dotted #333; }
+        .icon img, .icon svg { width: 40px; height: 40px; margin-bottom: 8px; object-fit: contain; }
+        .icon span { font-size: 0.75rem; background: rgba(0,0,0,0.5); padding: 2px 4px; border-radius: 2px; line-height: 1.1; }
+        
+        .notif-dot {
+            position: absolute; top: 5px; right: 20px; width: 12px; height: 12px;
+            background: var(--accent-red); border-radius: 50%; border: 2px solid #000;
+            display: none;
+        }
+
+        .dialogue-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            display: none; justify-content: center; align-items: center; z-index: 1000;
+            background: rgba(0,0,0,0.4);
+        }
+        .dialogue-box {
+            background: #121212; border: 1px solid #333; border-top: 3px solid var(--accent-red);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.9); color: #ddd; width: 420px;
+        }
+        .dialogue-header {
+            background: #1a1a1a; color: #fff; padding: 10px 15px; font-weight: bold; font-size: 0.85rem;
+            display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #333;
+        }
+        .dialogue-header button {
+            background: transparent; border: none; color: #888; font-size: 1rem; cursor: pointer;
+        }
+        .dialogue-header button:hover { color: #fff; }
+        .dialogue-content { padding: 25px 20px; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; display: flex; gap: 15px; align-items: center; }
+        .dialogue-icon { 
+            width: 45px; height: 45px; object-fit: contain; flex-shrink: 0;
+        }
+        .dialogue-footer { padding: 15px; display: flex; justify-content: flex-end; border-top: 1px solid #222; background: #0a0a0a; }
+        .btn-alert { 
+            background: #222; border: 1px solid #555; color: #fff;
+            padding: 8px 24px; cursor: pointer; font-size: 0.8rem; font-family: inherit; font-weight: bold;
+        }
+        .btn-alert:hover { background: #333; border-color: #777; }
+        
+        .btn-review {
+            background: #000; color: #fff; border: 1px solid #fff; padding: 12px; cursor: pointer;
+            font-family: inherit; font-weight: bold; margin-top: 20px; width: 100%; transition: background 0.2s;
+        }
+        .btn-review:hover { background: #222; }
+
+        .window {
+            position: absolute; background: #111; border: 1px solid #333;
+            display: none; flex-direction: column; z-index: 500; box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+            color: #ddd;
+        }
+        .win-header {
+            background: #1a1a1a; color: #fff; padding: 8px 12px;
+            display: flex; justify-content: space-between; align-items: center; cursor: move;
+            border-bottom: 1px solid #333; font-size: 0.8rem; font-weight: bold;
+        }
+        .win-body { flex-grow: 1; display: flex; overflow: hidden; background: #0a0a0a; color: var(--term-color); }
+        
+        .cyber-bg {
+            background-color: #050505;
+            background-image: 
+                linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px);
+            background-size: 30px 30px;
+            background-position: center center;
+            color: #aaa;
+            font-family: 'JetBrains Mono', monospace;
+            text-transform: uppercase;
+            display: flex;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+        .cyber-left { width: 340px; padding: 25px; border-right: 1px solid rgba(255,255,255,0.1); display: flex; flex-direction: column; }
+        .cyber-right { flex-grow: 1; padding: 25px; display: flex; flex-direction: column; position: relative; }
+        
+        .cyber-sys-text { font-size: 0.65rem; line-height: 1.5; margin-bottom: 25px; letter-spacing: 1px; color: #666; }
+        
+        .cyber-title {
+            display: inline-block; padding: 6px 15px; border: 1px solid #444;
+            background: repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(255,255,255,0.08) 3px, rgba(255,255,255,0.08) 6px);
+            font-weight: bold; letter-spacing: 3px; color: #ddd; font-size: 0.8rem; width: fit-content; margin-bottom: 25px;
+        }
+        
+        .cyber-timeline { position: relative; flex-grow: 1; overflow-y: auto; padding-left: 20px; margin-left: 5px;}
+        .cyber-timeline::-webkit-scrollbar { width: 4px; }
+        .cyber-timeline::-webkit-scrollbar-track { background: transparent; }
+        .cyber-timeline::-webkit-scrollbar-thumb { background: #555; border-radius: 4px; }
+        .cyber-timeline::before {
+            content: ''; position: absolute; top: 10px; bottom: 0; left: 3px;
+            width: 1px; background: rgba(255,255,255,0.3);
+        }
+        
+        .cyber-item { position: relative; padding: 0 0 25px 15px; cursor: pointer; opacity: 0.4; transition: opacity 0.2s; }
+        .cyber-item:hover, .cyber-item.active { opacity: 1; }
+        .cyber-item::before {
+            content: ''; position: absolute; left: -18px; top: 3px;
+            width: 5px; height: 5px; background: #888; border-radius: 50%;
+        }
+        .cyber-item.active::before { background: #fff; box-shadow: 0 0 5px #fff; }
+        
+        .cyber-item-title { font-size: 0.75rem; font-weight: bold; color: #ddd; display: flex; align-items: center; margin-bottom: 5px; }
+        .cyber-item-time { font-size: 0.65rem; color: #666; letter-spacing: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 250px; }
+
+        .cyber-right-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px; }
+        .cyber-right-title { font-size: 1.1rem; font-weight: bold; letter-spacing: 2px; color: #fff; margin-bottom: 5px; display: flex; align-items: center;}
+        .cyber-right-meta { font-size: 0.7rem; color: #666; letter-spacing: 1px; }
+        .cyber-content { flex-grow: 1; overflow-y: auto; font-size: 0.8rem; line-height: 1.6; color: #ccc; padding-right: 20px; }
+
+        #db-loading-overlay {
+            position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: #050505; z-index: 9999; overflow: hidden; 
+            transition: opacity 0.8s ease; display: none;
+        }
+        .grid-line-v { position: absolute; width: 2px; height: 0; background: rgba(255,255,255,0.4); top: 0; transform: translateX(-50%); transition: height 1.8s cubic-bezier(0.65, 0, 0.35, 1), opacity 0.8s; z-index: 2; }
+        .grid-line-h { position: absolute; height: 2px; width: 0; background: rgba(255,255,255,0.4); left: 0; transform: translateY(-50%); transition: width 1.8s cubic-bezier(0.65, 0, 0.35, 1), opacity 0.8s; z-index: 2; }
+        .grid-line-v.center-line, .grid-line-h.center-line { background: rgba(255,255,255,0.8); }
+
+        #db-grid-box {
+            position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+            border: 2px solid #fff; box-sizing: border-box; z-index: 3;
+            width: 0; height: 0; opacity: 0; transition: all 0.5s ease-in-out;
+        }
+        
+        #db-loading-logo {
+            width: 140px; position: absolute; left: 50%; top: 50%;
+            transform: translate(-50%, -50%) scale(1); opacity: 0; 
+            transition: opacity 1s ease-in-out; z-index: 4;
+            filter: brightness(2);
+        }
+
+        #circuit-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none; }
+        
+        #db-content-mask {
+            position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+            width: 1000px; height: 400px; 
+            background: radial-gradient(ellipse at center, rgba(5,5,5,1) 40%, rgba(5,5,5,0) 80%);
+            z-index: 3; opacity: 0; transition: opacity 1.5s ease; pointer-events: none;
+        }
+
+        #db-loading-text {
+            position: absolute; left: 50%; top: 50%; transform: translate(-80px, -50%);
+            opacity: 0; transition: opacity 0.5s ease; display: flex; flex-direction: column; justify-content: center; z-index: 5;
+        }
+        .db-title { font-size: 3.5rem; font-weight: 900; color: #fff; letter-spacing: 6px; font-family: 'JetBrains Mono', monospace; white-space: nowrap; display: flex; align-items: center; gap: 20px;}
+        .db-sub { font-size: 1.2rem; font-weight: bold; color: #aaa; letter-spacing: 4px; margin-top: 15px; white-space: nowrap; }
+
+        .r-let { color: #fff; transition: color 0.2s, background 0.2s; }
+        .r-let.red-grad {
+            background: linear-gradient(180deg, #ff4d4d 0%, var(--accent-red) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .reveal-container { position: relative; display: inline-flex; overflow: hidden; padding: 2px 0; }
+        .reveal-text { opacity: 0; }
+        .reveal-text.visible { opacity: 1; }
+        .reveal-block { position: absolute; top: 0; left: 0; width: 0; height: 100%; background: #fff; z-index: 10; }
+        .reveal-block.animate { animation: block-reveal 0.9s cubic-bezier(0.77, 0, 0.175, 1) forwards; }
+        
+        @keyframes block-reveal {
+            0% { left: 0; width: 0; }
+            40% { left: 0; width: 100%; }
+            60% { left: 0; width: 100%; }
+            100% { left: 100%; width: 0; }
+        }
+
+        #fullscreen-file-view {
+            display: none; position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; 
+            z-index: 9998; background: rgba(5, 5, 5, 0.98); padding: 50px; box-sizing: border-box; 
+            color: var(--term-color); overflow-y: auto; backdrop-filter: blur(10px);
+        }
+        .file-close-btn {
+            position: absolute; top: 30px; right: 30px; background: #111; border: 1px solid #444; 
+            color: #fff; width: 40px; height: 40px; cursor: pointer; font-size: 1.2rem; font-weight: bold; transition: background 0.2s;
+        }
+        .file-close-btn:hover { background: var(--accent-red); border-color: #fff; }
+        .file-container { max-width: 900px; margin: 0 auto; border: 1px solid #333; padding: 50px; background: #0a0a0a; box-shadow: 0 20px 50px rgba(0,0,0,0.8); }
+        .file-header-big { border-bottom: 2px solid var(--accent-red); padding-bottom: 15px; font-size: 2rem; font-weight: bold; letter-spacing: 2px; }
+        .file-photo-placeholder { width: 180px; height: 240px; border: 2px dashed #444; display: flex; align-items: center; justify-content: center; color: #555; font-weight: bold; letter-spacing: 2px; background: #050505; }
+
+        .taskbar { 
+            height: 38px; background: #0a0a0a; border-top: 1px solid #222; position: relative; 
+            z-index: 600; display: flex; justify-content: space-between; align-items: center; 
+        }
+        .start-btn { 
+            height: 100%; padding: 0 20px; background: #151515; border-right: 1px solid #333; 
+            display: flex; align-items: center; gap: 10px; font-weight: bold; cursor: pointer; 
+            font-size: 0.85rem; letter-spacing: 1px; color: #ccc; text-transform: uppercase;
+        }
+        .start-btn:hover { background: #222; color: #fff; }
+        .start-btn img { width: 18px; opacity: 0.9; }
+        .sys-tray { padding: 0 20px; font-size: 0.8rem; color: #777; height: 100%; display: flex; align-items: center; border-left: 1px solid #222; }
+
+        body.loading, body.loading * {
+            cursor: wait !important;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id="preloader">
+        <div style="padding: 20px; line-height: 2; display: flex; flex-direction: column; align-items: center; text-align: center;">
+            <div>PLEASE RUN THIS ON DESKTOP.<br>IF YOU DO NOT HAVE ONE I WILL SEND YOU A COPY OF THE LORE.</div>
+            <button id="understand-btn" class="btn-warning" onclick="startInit()">[ I UNDERSTAND ]</button>
+        </div>
+    </div>
+
+    <div id="remote-init" class="screen">
+        <div id="init-text" style="display:none;">
+            <div>ESTABLISHING SECURE CONNECTION...</div>
+            <img id="connection-gif" src="https://github.com/b1386082-blip/SCPRAISAOC_REP/blob/main/68445871-ezgif.com-gif-maker.gif?raw=true" class="recolor-white">
+            <div>TARGET ID: RAISA-TRM-8F4A2B9C</div>
+            <div class="loading-container">
+                <div id="loading-bar-title">REMOTE KERNEL INJECTION</div>
+                <div id="loading-bar">[░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░] 0%</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="bios-screen" class="screen">
+        <img id="bios-logo" src="https://github.com/b1386082-blip/SCPRAISAOC_REP/blob/main/download%20(51).png?raw=true" class="recolor-white bios-logo" alt="Foundation Hardware">
+        <div id="bios-log" class="bios-text-container"></div>
+    </div>
+
+    <div id="os-loading" class="screen">
+        <img src="https://raw.githubusercontent.com/b1386082-blip/SCPRAISAOC_REP/8611ccdeeca81dca372d8aecea3e6964be39fe9a/SCP_Foundation_(emblem)%20(1).svg" class="recolor-white scp-emblem">
+    </div>
+
+    <div id="login-screen" class="screen">
+        <div class="login-bg-map"></div>
+        <div class="login-container">
+            <div class="login-sidebar-accent"></div>
+            <div class="login-header">
+                <img src="https://github.com/b1386082-blip/SCPRAISAOC_REP/blob/main/RAISA.webp?raw=true" class="invert-color raisa-logo-small">
+                <h1 class="login-title">FOUNDATION ACCESS PORTAL</h1>
+                <p class="login-subtitle">RAISA TERMINAL: 04-PR (PRIMARY)</p>
+            </div>
+            
+            <div class="login-form-wrapper">
+                <div id="login-form-content">
+                    <div class="input-box">
+                        <label>OPERATIVE IDENTIFIER</label>
+                        <input type="text" value="S.ANALYST.8441" readonly>
+                    </div>
+                    <div class="input-box">
+                        <label>SECURE PASSCODE</label>
+                        <input type="password" value="••••••••••••••••" readonly>
+                    </div>
+                    <div class="login-actions">
+                        <button class="btn-auth" onclick="startLoginSequence()">AUTHORIZE SESSION</button>
+                        <button class="btn-reg" onclick="alert('ERROR: Operative registration is currently suspended by RAISA Administrative Command. Please contact your Site Director.')">REGISTER ACCOUNT</button>
+                    </div>
+                </div>
+
+                <div id="login-loader">
+                    <img id="login-gif" src="https://github.com/b1386082-blip/SCPRAISAOC_REP/blob/main/Screenrecording2026-04-082.01.42PMonline-video-cutter.com-ezgif.com-gif-maker.gif?raw=true">
+                    <div class="loader-status">VERIFYING CREDENTIALS...</div>
+                </div>
+            </div>
+
+            <div class="login-footer">
+                WARNING: All activity on this terminal is logged and monitored under RAISA Directorship. Unauthorized access is a Class-A treasonable offense. Access is granted only to Level 4+ authorized personnel.
+            </div>
+        </div>
+    </div>
+
+    <div id="desktop-screen" class="screen">
+        <div class="desktop-wallpaper"></div>
+        
+        <div class="desktop-icons">
+            <div class="icon" onclick="openWindow('win-telecoms')">
+                <img src="https://github.com/b1386082-blip/SCPRAISAOC_REP/blob/main/Omicron-67.webp?raw=true">
+                <span>Foundation Telecoms</span>
+                <div id="telecoms-dot" class="notif-dot"></div>
+            </div>
+            <div class="icon" onclick="openWindow('win-db')">
+                <img src="https://github.com/b1386082-blip/SCPRAISAOC_REP/blob/main/RAISA.webp?raw=true" class="invert-color">
+                <span>RAISA Database</span>
+            </div>
+            <div class="icon" onclick="openWindow('win-scipnet')">
+                <img src="https://raw.githubusercontent.com/b1386082-blip/SCPRAISAOC_REP/8611ccdeeca81dca372d8aecea3e6964be39fe9a/SCP_Foundation_(emblem)%20(1).svg" class="recolor-white">
+                <span>SCipNET</span>
+            </div>
+            <div class="icon" onclick="openWindow('win-terminal')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="recolor-white"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+                <span>Terminal</span>
+            </div>
+        </div>
+
+        <div id="win-telecoms" class="window" style="width: 950px; height: 600px; left: 50px; top: 50px;" onmousedown="bringToFront(this.id)">
+            <div class="win-header">
+                <div class="window-title"><img src="https://github.com/b1386082-blip/SCPRAISAOC_REP/blob/main/Omicron-67.webp?raw=true" style="width:14px; margin-right:6px; vertical-align:middle;"> Foundation Telecoms - Internal Network</div>
+                <div class="window-controls"><button onclick="closeWindow('win-telecoms')" style="background:transparent; border:none; color:#888; cursor:pointer;">&#10005;</button></div>
+            </div>
+            <div class="win-body" style="padding: 0;">
+                <div class="cyber-bg">
+                    <div class="cyber-left">
+                        <div class="cyber-sys-text">
+                            CONNECTING...<br>
+                            OPTIMIZING INTERFACE...<br>
+                            SCAN COMPLETE<br>
+                            DEV MODE OFF
+                        </div>
+                        <div class="cyber-title">TRANSMISSION LOG</div>
+                        <div class="cyber-timeline" id="msg-list"></div>
+                    </div>
+                    <div class="cyber-right" id="msg-view"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="win-db" class="window" style="width: 950px; height: 600px; left: 100px; top: 100px;" onmousedown="bringToFront(this.id)">
+            <div class="win-header">
+                <div class="window-title"><img src="https://github.com/b1386082-blip/SCPRAISAOC_REP/blob/main/RAISA.webp?raw=true" class="invert-color" style="width:14px; margin-right:6px; vertical-align:middle;"> RAISA Database v4.2</div>
+                <div class="window-controls"><button onclick="closeWindow('win-db')" style="background:transparent; border:none; color:#888; cursor:pointer;">&#10005;</button></div>
+            </div>
+            <div class="win-body" style="padding: 0;">
+                <div class="cyber-bg">
+                    <div class="cyber-left">
+                        <div class="cyber-sys-text">
+                            ACCESSING ARCHIVE...<br>
+                            DECRYPTING HEADERS...<br>
+                            NODE SECURE<br>
+                            PROTOCOL 04-PR
+                        </div>
+                        <div class="cyber-title">ARCHIVE LOG</div>
+                        <div class="cyber-timeline" id="file-list"></div>
+                    </div>
+                    <div class="cyber-right" id="file-view"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="win-scipnet" class="window" style="width: 500px; height: 350px; left: 200px; top: 200px;" onmousedown="bringToFront(this.id)">
+            <div class="win-header">
+                <div class="window-title">SCipNET Legacy</div>
+                <div class="window-controls"><button onclick="closeWindow('win-scipnet')" style="background:transparent; border:none; color:#888; cursor:pointer;">&#10005;</button></div>
+            </div>
+            <div class="win-body" style="padding: 30px; text-align: center; color: #555; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                <img src="https://raw.githubusercontent.com/b1386082-blip/SCPRAISAOC_REP/8611ccdeeca81dca372d8aecea3e6964be39fe9a/SCP_Foundation_(emblem)%20(1).svg" class="recolor-white" style="opacity: 0.1; width: 60px; margin-bottom: 20px;">
+                <p>DATABASE CURRENTLY UNDER MAINTENANCE.<br>Please try again later.</p>
+            </div>
+        </div>
+
+        <div id="win-terminal" class="window" style="width: 600px; height: 400px; left: 250px; top: 250px;" onmousedown="bringToFront(this.id)">
+            <div class="win-header">
+                <div class="window-title">Root Terminal</div>
+                <div class="window-controls"><button onclick="closeWindow('win-terminal')" style="background:transparent; border:none; color:#888; cursor:pointer;">&#10005;</button></div>
+            </div>
+            <div class="win-body" style="padding: 15px; background: #000; color: #fff; display: block;">
+                <div>RAISA Core v4.0.6 - Terminal 04-PR</div>
+                <div>root@raisa-04-pr:~$ <span class="cursor"></span></div>
+            </div>
+        </div>
+
+        <div class="taskbar">
+            <div class="start-btn"><img src="https://raw.githubusercontent.com/b1386082-blip/SCPRAISAOC_REP/8611ccdeeca81dca372d8aecea3e6964be39fe9a/SCP_Foundation_(emblem)%20(1).svg" class="recolor-white"> START</div>
+            <div class="sys-tray" id="clock">12:00 AM</div>
+        </div>
+
+        <div id="msg-alert" class="dialogue-overlay">
+            <div class="dialogue-box">
+                <div class="dialogue-header">
+                    <span>ADMINISTRATIVE ALERT</span>
+                    <button onclick="dismissAlert()">&#10005;</button>
+                </div>
+                <div class="dialogue-content">
+                    <img src="https://github.com/b1386082-blip/SCPRAISAOC_REP/blob/main/task_01knm0r16ke9ar5wyam2pr2sgz_1775567167_img_1.webp?raw=true" class="dialogue-icon" alt="Warning">
+                    <div id="alert-text" style="line-height: 1.4;">A priority transmission has been received.<br>Administrative review is required in Foundation Telecoms.</div>
+                </div>
+                <div class="dialogue-footer">
+                    <button class="btn-alert" onclick="openTelecomsFromAlert()">OPEN TRANSMISSION</button>
+                    <button class="btn-alert" onclick="dismissAlert()" style="background: transparent; border-color: #444; margin-left: 10px;">DISMISS</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="passcode-overlay" class="dialogue-overlay">
+            <div class="dialogue-box" style="width: 350px;">
+                <div class="dialogue-header">
+                    <span>SECURITY OVERRIDE REQUIRED</span>
+                    <button onclick="closePasscode()">&#10005;</button>
+                </div>
+                <div class="dialogue-content" style="flex-direction: column; align-items: center; text-align: center;">
+                    <p style="margin-top:0; margin-bottom:15px; font-size: 0.8rem; color:#ccc;">Please enter the 4-digit authorization code to review RAISA Personnel File PF-7721.</p>
+                    <input type="password" id="file-passcode" maxlength="4" style="background:#000; color:#fff; border:1px solid #444; padding:15px; width:150px; font-family:inherit; font-size:1.5rem; text-align:center; letter-spacing: 8px;">
+                    <div id="passcode-error" style="color:var(--accent-red); margin-top:10px; font-size:0.75rem; font-weight:bold; display:none;">INVALID PASSCODE</div>
+                </div>
+                <div class="dialogue-footer" style="justify-content: center;">
+                    <button class="btn-alert" onclick="verifyPasscode()" style="width:100%;">SUBMIT CODE</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="db-loading-overlay">
+            <div id="circuit-container"></div>
+            <div id="db-content-mask"></div>
+
+            <div class="grid-line-v" style="left: calc(50% - 400px);"></div>
+            <div class="grid-line-v" style="left: calc(50% - 200px);"></div>
+            <div class="grid-line-v" style="left: calc(50% - 100px);"></div>
+            <div class="grid-line-v center-line" style="left: 50%;"></div>
+            <div class="grid-line-v" style="left: calc(50% + 100px);"></div>
+            <div class="grid-line-v" style="left: calc(50% + 200px);"></div>
+            <div class="grid-line-v" style="left: calc(50% + 400px);"></div>
+
+            <div class="grid-line-h" style="top: calc(50% - 400px);"></div>
+            <div class="grid-line-h" style="top: calc(50% - 200px);"></div>
+            <div class="grid-line-h" style="top: calc(50% - 100px);"></div>
+            <div class="grid-line-h center-line" style="top: 50%;"></div>
+            <div class="grid-line-h" style="top: calc(50% + 100px);"></div>
+            <div class="grid-line-h" style="top: calc(50% + 200px);"></div>
+            <div class="grid-line-h" style="top: calc(50% + 400px);"></div>
+
+            <div id="db-grid-box"></div>
+            <img id="db-loading-logo" src="https://github.com/b1386082-blip/SCPRAISAOC_REP/blob/main/RAISA.webp?raw=true" class="invert-color">
+            <div id="db-loading-text">
+                <div class="db-title">
+                    <span id="raisa-letters">
+                        <span class="r-let">R</span><span class="r-let">A</span><span class="r-let">I</span><span class="r-let">S</span><span class="r-let">A</span>
+                    </span>
+                    <span class="reveal-container">
+                        <span class="reveal-text" id="filebase-text">FILEBASE</span>
+                        <span class="reveal-block" id="filebase-block"></span>
+                    </span>
+                </div>
+                <div class="db-sub reveal-container" style="margin-top: 15px;">
+                    <span class="reveal-text" id="powered-text">POWERED BY SCiPNET</span>
+                    <span class="reveal-block" id="powered-block"></span>
+                </div>
+            </div>
+        </div>
+
+        <div id="fullscreen-file-view">
+            <button class="file-close-btn" onclick="document.getElementById('fullscreen-file-view').style.display='none'">&#10005;</button>
+            <div class="file-container">
+                <div class="file-header-big">PERSONNEL FILE: PF-7721</div>
+                <div id="fullscreen-file-content" style="margin-top: 40px; font-size: 1.2rem; color: #aaa; text-align: center; line-height: 2;">
+                    [ PLACEHOLDER TEXT ]
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+        function generateRandomString(length) {
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+=-{}[]|:;<>,.?/~';
+            let result = '';
+            for(let i=0; i<length; i++) result += chars.charAt(Math.floor(Math.random() * chars.length));
+            return result;
+        }
+
+        let transmissions = [
+            { sender: "UNKNOWN", subject: "ADMIN OVERLOOK: PF-7721", body: "Senior Analyst.<br><br>The personnel record <b>PF-7721</b> has been processed by your subordinates. All internal edits are complete. Per RAISA administrative protocol, this file now requires your final verification and archival sign-off.<br><br>Preliminary audits have flagged no irregularities. Proceed with the final commit via the RAISA Database application at your earliest convenience.<br><br><i>Message source verified via encrypted secondary terminal.</i>", time: "14:22", restricted: false },
+            { sender: "Director Jones", subject: "Archival Sync Schedule", body: "[RESTRICTED]", time: "11:15", restricted: true },
+            { sender: "RAISA Site-19", subject: "Automated Log Summary", body: "[RESTRICTED]", time: "09:40", restricted: true }
+        ];
+        for(let i=3; i<20; i++) transmissions.push({ sender: "System Terminal "+(100+i), subject: "Status Update", body: "[ENCRYPTED]", time: "00:00", restricted: true });
+
+        const database = [
+            { name: "PERSONNEL_FILE_PF-7721", status: "PENDING APPROVAL", body: "FILE IDENTIFIER: PF-7721<br>SUBJECT: [REDACTED] - RAISA Personnel<br>CLEARANCE: LEVEL 5<br>SOURCE: RAISA INTERNAL EDITS<br><br>This RAISA personnel file has been updated by Analyst Team 4. Internal hash checks are green. No irregularities detected in current record modifications.<br><br><button onclick=\"promptCodeReview()\" class=\"btn-review\">REVIEW FILE</button>" },
+            { name: "ARCHIVE_SITE-45_STAFF.XLS", status: "ARCHIVED", body: "Site-45 Personnel List (Q2 2026). 10,000 active entries recorded." },
+            { name: "CONTAINMENT_LOG_SCP-682.LOG", status: "ENCRYPTED", body: `<span style="color:#888;">[ENCRYPTED FILE]</span><br><br><div style="word-break: break-all; font-size: 0.7rem; color: #555;">${generateRandomString(400)}</div>` }
+        ];
+        for(let i=3; i<30; i++) {
+            database.push({ name: `ARCHIVE_R_${1000+i}.DOC`, status: "ENCRYPTED", body: `<span style="color:#888;">[ENCRYPTED FILE]</span><br><br><div style="word-break: break-all; font-size: 0.7rem; color: #555;">${generateRandomString(400)}</div>` });
+        }
+
+        async function startInit() {
+            const btn = document.getElementById('understand-btn');
+            btn.innerText = "[ INITIALIZING... ]";
+            btn.style.pointerEvents = 'none';
+            await init();
+        }
+
+        async function init() {
+            const assets = [
+                'https://github.com/b1386082-blip/SCPRAISAOC_REP/blob/main/download%20(51).png?raw=true',
+                'https://raw.githubusercontent.com/b1386082-blip/SCPRAISAOC_REP/8611ccdeeca81dca372d8aecea3e6964be39fe9a/SCP_Foundation_(emblem)%20(1).svg',
+                'https://github.com/b1386082-blip/SCPRAISAOC_REP/blob/main/Black-And-White-World-Map-Wall-Mural.jpg?raw=true',
+                'https://github.com/b1386082-blip/SCPRAISAOC_REP/blob/main/RAISA.webp?raw=true',
+                'https://github.com/b1386082-blip/SCPRAISAOC_REP/blob/main/Omicron-67.webp?raw=true',
+                'https://github.com/b1386082-blip/SCPRAISAOC_REP/blob/main/task_01knm0r16ke9ar5wyam2pr2sgz_1775567167_img_1.webp?raw=true',
+                'https://github.com/b1386082-blip/SCPRAISAOC_REP/blob/main/68445871-ezgif.com-gif-maker.gif?raw=true',
+                'https://github.com/b1386082-blip/SCPRAISAOC_REP/blob/main/task_01knm8g96re3tssm7gcchxhmzz_1775575308_img_0.webp?raw=true',
+                'https://github.com/b1386082-blip/SCPRAISAOC_REP/blob/main/task_01knm9d3z2fp1btk2ampzt1azp_1775576243_img_1.webp?raw=true',
+                'https://github.com/b1386082-blip/SCPRAISAOC_REP/blob/main/Screenrecording2026-04-082.01.42PMonline-video-cutter.com-ezgif.com-gif-maker.gif?raw=true'
+            ];
+            await Promise.all(assets.map(s => new Promise(res => { const i = new Image(); i.src = s; i.onload = res; i.onerror = res; })));
+            
+            document.getElementById('preloader').style.display = 'none';
+
+            document.getElementById('remote-init').classList.add('active');
+            await sleep(1000);
+            document.getElementById('init-text').style.display = 'block';
+            document.getElementById('connection-gif').style.opacity = 1;
+            const bar = document.getElementById('loading-bar');
+            for(let i=0; i<=30; i++) {
+                bar.innerHTML = `[${'█'.repeat(i)}${'░'.repeat(30 - i)}] ${Math.floor((i / 30) * 100)}%`;
+                await sleep(Math.random() * 120 + 40);
+            }
+            await sleep(800);
+            document.getElementById('remote-init').classList.remove('active');
+
+            document.getElementById('bios-screen').classList.add('active');
+            await sleep(500);
+            document.getElementById('bios-logo').style.opacity = 1;
+            const log = document.getElementById('bios-log');
+            const pr = async (t, d=80) => { const l=document.createElement('div'); l.className='bios-line'; l.innerHTML=t; log.appendChild(l); await sleep(d); };
+            
+            await pr("RAISA-BIOS v4.02.01 (C) 2018 Foundation Computing H.L.D.");
+            await sleep(300);
+            await pr("Main Processor: Intel(R) Core(TM) i5-8400 @ 2.80GHz");
+            await pr("&nbsp;");
+            await sleep(400);
+            await pr("Initializing Hardware Controller...", 150);
+            await pr("Scanning PCI Bus... 12 Devices Found.", 100);
+            await pr("Configuring Network Interconnect: Secure Terminal 04-PR", 100);
+            await pr("&nbsp;");
+            await sleep(500);
+            const mem = document.createElement('div'); mem.className='bios-line'; log.appendChild(mem);
+            for(let m=0; m<=16384; m+=256) { mem.innerHTML = `Memory Testing: ${m} MB OK`; await sleep(30); }
+            await pr("&nbsp;");
+            await sleep(600);
+            await pr("Detecting SATA Port 0: Foundation Secure NVMe (512GB)... OK", 150);
+            await pr("Detecting SATA Port 1: RAISA Archival HDD (2TB)... OK", 150);
+            await pr("Detecting USB Devices... Keyboard, Mouse, Security Token [Found]", 150);
+            await pr("&nbsp;");
+            await sleep(800);
+            await pr("Verifying Kernel Integrity Hash...", 200);
+            await sleep(1500);
+            await pr("Kernel Status: VERIFIED [PASS]");
+            await sleep(500);
+            await pr("Handoff to Operating System...");
+            await sleep(2000);
+
+            document.getElementById('bios-screen').classList.remove('active');
+            document.getElementById('os-loading').classList.add('active');
+            await sleep(4000);
+
+            document.getElementById('os-loading').classList.remove('active');
+            document.getElementById('login-screen').classList.add('active');
+        }
+
+        async function startLoginSequence() {
+            const form = document.getElementById('login-form-content');
+            const loader = document.getElementById('login-loader');
+            const gif = document.getElementById('login-gif');
+
+            form.style.display = 'none';
+            loader.style.display = 'flex';
+
+            await sleep(4000);
+            await authenticate();
+        }
+
+        async function authenticate() {
+            document.getElementById('login-screen').classList.remove('active');
+            document.getElementById('desktop-screen').classList.add('active');
+            startTime();
+            renderApps();
+            
+            setTimeout(() => {
+                document.getElementById('msg-alert').style.display = 'flex';
+                document.getElementById('telecoms-dot').style.display = 'block';
+            }, 3000);
+        }
+
+        function renderApps() {
+            document.getElementById('msg-list').innerHTML = transmissions.map((t, i) => `
+                <div class="cyber-item" onclick="viewMsg(${i})">
+                    <div class="cyber-item-title">
+                        <img src="https://github.com/b1386082-blip/SCPRAISAOC_REP/blob/main/task_01knm9d3z2fp1btk2ampzt1azp_1775576243_img_1.webp?raw=true" class="recolor-white" style="width:16px; margin-right:10px; display:inline-block; vertical-align:middle; transform:scale(1.6);">
+                        NOTIFICATION
+                    </div>
+                    <div class="cyber-item-time">${t.time} - ${t.subject.substring(0,22).toUpperCase()}...</div>
+                </div>
+            `).join('');
+            
+            document.getElementById('file-list').innerHTML = database.map((f, i) => `
+                <div class="cyber-item" onclick="viewFile(${i})">
+                    <div class="cyber-item-title">
+                        <img src="https://github.com/b1386082-blip/SCPRAISAOC_REP/blob/main/task_01knm8g96re3tssm7gcchxhmzz_1775575308_img_0.webp?raw=true" class="recolor-white" style="width:16px; margin-right:10px; display:inline-block; vertical-align:middle; transform:scale(1.6);">
+                        DATA FILE
+                    </div>
+                    <div class="cyber-item-time">FILE_${f.name.substring(0,18)}...</div>
+                </div>
+            `).join('');
+        }
+
+        function viewMsg(id) {
+            const t = transmissions[id];
+            const view = document.getElementById('msg-view');
+            
+            if(t.restricted) {
+                view.innerHTML = `<div style="color: #555; text-align: center; margin-top: 50px; font-style: italic; font-size: 1rem;">[ TRANSMISSION UNAVAILABLE ]<br>Please try again later.</div>`;
+            } else {
+                view.innerHTML = `
+                    <div class="cyber-right-header">
+                        <div>
+                            <div class="cyber-title">DISPLAYING LOG</div>
+                            <div class="cyber-right-title">
+                                <img src="https://github.com/b1386082-blip/SCPRAISAOC_REP/blob/main/task_01knm9d3z2fp1btk2ampzt1azp_1775576243_img_1.webp?raw=true" class="recolor-white" style="width:24px; margin-right:14px; vertical-align:middle; transform:scale(1.6) translateY(-2px);">
+                                ${t.subject}
+                            </div>
+                            <div class="cyber-right-meta">${t.time} - ${t.sender}</div>
+                        </div>
+                    </div>
+                    <div class="cyber-content">${t.body}</div>
+                `;
+            }
+            
+            document.querySelectorAll('#msg-list .cyber-item').forEach((el, idx) => el.classList.toggle('active', id === idx));
+        }
+
+        function viewFile(id) {
+            const f = database[id];
+            const view = document.getElementById('file-view');
+            
+            view.innerHTML = `
+                <div class="cyber-right-header">
+                    <div>
+                        <div class="cyber-title">DISPLAYING FILE</div>
+                        <div class="cyber-right-title">
+                            <img src="https://github.com/b1386082-blip/SCPRAISAOC_REP/blob/main/task_01knm8g96re3tssm7gcchxhmzz_1775575308_img_0.webp?raw=true" class="recolor-white" style="width:24px; margin-right:14px; vertical-align:middle; transform:scale(1.6) translateY(-2px);">
+                            ${f.name}
+                        </div>
+                        <div class="cyber-right-meta">STATUS: ${f.status}</div>
+                    </div>
+                </div>
+                <div class="cyber-content">${f.body}</div>
+            `;
+            
+            document.querySelectorAll('#file-list .cyber-item').forEach((el, idx) => el.classList.toggle('active', id === idx));
+        }
+
+        let aiMessageTriggered = false;
+
+        async function promptCodeReview() {
+            document.getElementById('passcode-overlay').style.display = 'flex';
+            document.getElementById('file-passcode').value = '';
+            document.getElementById('passcode-error').style.display = 'none';
+
+            if(!aiMessageTriggered) {
+                aiMessageTriggered = true;
+                
+                transmissions.unshift({
+                    sender: "RAISA.AI",
+                    subject: "UNAUTHORIZED ACCESS DETECTED",
+                    body: "Warning: Attempted access to RAISA Personnel File PF-7721 detected without authorization token.<br><br>Please submit biometric data to verify identity and generate override code.<br><br><button id='bio-btn' onclick='submitBiometrics(this)' style='background:#222; color:#fff; border:1px solid #444; padding:8px 16px; cursor:pointer; font-family:inherit; margin-top:15px; font-weight:bold; transition: background 0.2s;'>SUBMIT BIOMETRICS</button>",
+                    time: "Just Now",
+                    restricted: false
+                });
+                
+                renderApps();
+                document.getElementById('msg-alert').style.display = 'flex';
+                document.getElementById('telecoms-dot').style.display = 'block';
+                document.getElementById('alert-text').innerHTML = "New transmission from RAISA.AI.<br>Immediate administrative action required.";
+            }
+        }
+
+        function drawCircuits() {
+            const container = document.getElementById('circuit-container');
+            container.innerHTML = '';
+            
+            const svgNS = "http://www.w3.org/2000/svg";
+            const svg = document.createElementNS(svgNS, "svg");
+            svg.setAttribute("width", "100%");
+            svg.setAttribute("height", "100%");
+            svg.style.position = "absolute";
+            svg.style.top = "0";
+            svg.style.left = "0";
+            
+            for(let i=0; i<25; i++) {
+                const isRed = Math.random() > 0.75;
+                const path = document.createElementNS(svgNS, "path");
+                
+                const w = window.innerWidth;
+                const h = window.innerHeight;
+                const edge = Math.floor(Math.random() * 4);
+                let sx, sy, tx, ty, ex, ey;
+                
+                if (edge === 0) {
+                    sx = Math.random() * w; sy = 0;
+                    tx = sx; ty = Math.random() * h * 0.8 + (h * 0.1);
+                    ex = Math.random() * w; ey = ty;
+                } else if (edge === 1) {
+                    sx = w; sy = Math.random() * h;
+                    tx = Math.random() * w * 0.8; ty = sy;
+                    ex = tx; ey = Math.random() * h;
+                } else if (edge === 2) {
+                    sx = Math.random() * w; sy = h;
+                    tx = sx; ty = Math.random() * h * 0.8;
+                    ex = Math.random() * w; ey = ty;
+                } else {
+                    sx = 0; sy = Math.random() * h;
+                    tx = Math.random() * w * 0.8 + (w * 0.1); ty = sy;
+                    ex = tx; ey = Math.random() * h;
+                }
+
+                const length = Math.abs(tx - sx) + Math.abs(ty - sy) + Math.abs(ex - tx) + Math.abs(ey - ty);
+                
+                path.setAttribute("d", `M ${sx} ${sy} L ${tx} ${ty} L ${ex} ${ey}`);
+                path.setAttribute("fill", "none");
+                path.setAttribute("stroke", isRed ? "var(--accent-red)" : "rgba(255,255,255,0.7)");
+                path.setAttribute("stroke-width", Math.random() * 2 + 1);
+                
+                path.style.strokeDasharray = length;
+                path.style.strokeDashoffset = length;
+                path.style.transition = `stroke-dashoffset ${Math.random() * 1.5 + 1.5}s cubic-bezier(0.2, 0.8, 0.2, 1)`;
+                
+                svg.appendChild(path);
+                
+                setTimeout(() => { path.style.strokeDashoffset = "0"; }, 50);
+            }
+            container.appendChild(svg);
+        }
+
+        async function playRaisaTransition() {
+            const overlay = document.getElementById('db-loading-overlay');
+            const box = document.getElementById('db-grid-box');
+            const logo = document.getElementById('db-loading-logo');
+            const text = document.getElementById('db-loading-text');
+            const mask = document.getElementById('db-content-mask');
+
+            document.querySelectorAll('.grid-line-v').forEach(l => { l.style.height = '0'; l.style.opacity = '1'; });
+            document.querySelectorAll('.grid-line-h').forEach(l => { l.style.width = '0'; l.style.opacity = '1'; });
+            box.style.width = '0'; box.style.height = '0'; box.style.opacity = '0';
+            mask.style.opacity = '0';
+            
+            logo.style.transition = 'none';
+            logo.style.opacity = '0'; logo.style.transform = 'translate(-50%, -50%) scale(1)';
+            
+            text.style.opacity = '0';
+            document.querySelectorAll('.r-let').forEach(l => l.classList.remove('red-grad'));
+            document.getElementById('filebase-text').classList.remove('visible');
+            document.getElementById('filebase-block').classList.remove('animate');
+            document.getElementById('powered-text').classList.remove('visible');
+            document.getElementById('powered-block').classList.remove('animate');
+            document.getElementById('circuit-container').innerHTML = '';
+
+            overlay.style.display = 'block';
+            overlay.style.opacity = '1';
+            await sleep(100);
+
+            document.querySelectorAll('.grid-line-v').forEach(l => l.style.height = '100%');
+            document.querySelectorAll('.grid-line-h').forEach(l => l.style.width = '100%');
+            await sleep(1500);
+
+            box.style.width = '200px';
+            box.style.height = '200px';
+            box.style.opacity = '1';
+            await sleep(600);
+
+            logo.style.transition = 'opacity 1.5s ease';
+            logo.style.opacity = '1';
+            await sleep(1500);
+
+            document.querySelectorAll('.grid-line-v').forEach(l => l.style.opacity = '0');
+            document.querySelectorAll('.grid-line-h').forEach(l => l.style.opacity = '0');
+            box.style.opacity = '0';
+            await sleep(800);
+
+            logo.style.transition = 'transform 2.5s cubic-bezier(0.25, 1, 0.5, 1)';
+            logo.style.transform = 'translate(calc(-50% - 280px), -50%) scale(1.6)';
+            
+            await sleep(800);
+
+            mask.style.opacity = '1';
+            drawCircuits();
+
+            text.style.opacity = '1';
+
+            const letters = document.querySelectorAll('.r-let');
+            for (let i = 0; i < letters.length; i++) {
+                await sleep(150);
+                letters[i].classList.add('red-grad');
+            }
+            
+            await sleep(200);
+
+            document.getElementById('filebase-block').classList.add('animate');
+            setTimeout(() => document.getElementById('filebase-text').classList.add('visible'), 400);
+
+            await sleep(500);
+
+            document.getElementById('powered-block').classList.add('animate');
+            setTimeout(() => document.getElementById('powered-text').classList.add('visible'), 400);
+
+            await sleep(3500);
+
+            document.getElementById('fullscreen-file-view').style.display = 'block';
+
+            overlay.style.transition = 'opacity 1s ease';
+            overlay.style.opacity = '0';
+            await sleep(1000);
+            overlay.style.display = 'none';
+        }
+
+        function closePasscode() {
+            document.getElementById('passcode-overlay').style.display = 'none';
+        }
+
+        async function verifyPasscode() {
+            const code = document.getElementById('file-passcode').value;
+            if(code === '7721') {
+                closePasscode();
+                await playRaisaTransition();
+            } else {
+                document.getElementById('passcode-error').style.display = 'block';
+            }
+        }
+
+        function submitBiometrics(btn) {
+            btn.outerHTML = "<div style='color:var(--accent-green); margin-top:15px; font-weight:bold;'>Biometrics verified. Override passcode is 7721.</div>";
+            transmissions[0].body = "Warning: Attempted access to RAISA Personnel File PF-7721 detected without authorization token.<br><br>Please submit biometric data to verify identity and generate override code.<br><br><div style='color:var(--accent-green); margin-top:15px; font-weight:bold;'>Biometrics verified. Override passcode is 7721.</div>";
+        }
+
+        function dismissAlert() { document.getElementById('msg-alert').style.display = 'none'; }
+        
+        async function openTelecomsFromAlert() {
+            dismissAlert();
+            await openWindow('win-telecoms');
+            viewMsg(0);
+        }
+
+        let isOpening = false;
+
+        async function openWindow(id) {
+            const win = document.getElementById(id);
+            if (win.style.display === 'flex') {
+                bringToFront(id);
+                return;
+            }
+            if (isOpening) return;
+            isOpening = true;
+
+            document.body.classList.add('loading');
+            await sleep(Math.floor(Math.random() * 600) + 400);
+            document.body.classList.remove('loading');
+            
+            isOpening = false;
+
+            bringToFront(id);
+            win.style.display = 'flex';
+            if(id === 'win-telecoms') document.getElementById('telecoms-dot').style.display = 'none';
+        }
+        
+        function bringToFront(id) {
+            document.querySelectorAll('.window').forEach(w => w.style.zIndex = '500');
+            document.getElementById(id).style.zIndex = '501';
+        }
+        
+        function closeWindow(id) { document.getElementById(id).style.display = 'none'; }
+
+        function startTime() {
+            setInterval(() => {
+                const now = new Date();
+                let h = now.getHours();
+                let m = now.getMinutes();
+                const am = h >= 12 ? 'PM' : 'AM';
+                h = h % 12 || 12;
+                m = m < 10 ? '0'+m : m;
+                document.getElementById('clock').innerText = `${h}:${m} ${am}`;
+            }, 1000);
+        }
+
+        let draggedWin = null;
+        let offsetX = 0, offsetY = 0;
+
+        document.querySelectorAll('.win-header').forEach(header => {
+            header.addEventListener('mousedown', (e) => {
+                if (e.target.tagName === 'BUTTON') return;
+                draggedWin = header.closest('.window');
+                bringToFront(draggedWin.id);
+                const rect = draggedWin.getBoundingClientRect();
+                offsetX = e.clientX - rect.left;
+                offsetY = e.clientY - rect.top;
+            });
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (draggedWin) {
+                draggedWin.style.left = `${e.clientX - offsetX}px`;
+                draggedWin.style.top = `${e.clientY - offsetY}px`;
+            }
+        });
+
+        document.addEventListener('mouseup', () => {
+            draggedWin = null;
+        });
+
+    </script>
+</body>
+</html>
